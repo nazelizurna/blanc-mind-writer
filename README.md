@@ -1,4 +1,6 @@
-# Writer
+# Blanc Mind Writer
+
+Want to write but your mind goes completely blank? Do a stream-of-consciousness brain dump by writing anything that comes to mind for five minutes.
 
 A minimal, distraction-free plain text editor that runs entirely in the browser.
 Built with plain HTML, CSS and JavaScript (DOM only, no dependencies, no build step).
