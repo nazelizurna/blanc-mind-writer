@@ -17,23 +17,6 @@ Built with plain HTML, CSS and JavaScript (DOM only, no dependencies, no build s
 
 Everything stays in your browser. Nothing is sent to any server.
 
-## Run locally
-
-Just open `index.html` in a browser. Or serve the folder:
-
-```bash
-npx serve .
-```
-
-## Deploy on Vercel (free Hobby plan)
-
-1. Push this repo to GitHub.
-2. Go to [vercel.com/new](https://vercel.com/new) and import the repository.
-3. Leave Framework Preset as **Other**, with no build command and no output directory.
-4. Click **Deploy**.
-
-Every push to `main` redeploys automatically.
-
 ## License
 
 MIT
