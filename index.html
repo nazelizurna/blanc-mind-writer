@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Writer</title>
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --bar-bg: #252525;
+      --border: #333;
+      --fg: #eaeaea;
+      --muted: #777;
+      --placeholder: #ffffff;
+      --select-bg: #1e1e1e;
+      --select-border: #4a4a4a;
+      --selection: #17364d;
+      --caret: #4fb8f0;
+      --warn: #ff6b6b;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #fff;
+        --bar-bg: #f5f5f5;
+        --border: #e2e2e2;
+        --fg: #111;
+        --muted: #888;
+        --placeholder: #111111;
+        --select-bg: #fff;
+        --select-border: #ccc;
+        --selection: #cfe6fb;
+        --caret: #1a8ad4;
+        --warn: #d33;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      flex-direction: column;
+      font: 16px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    /* ---------- top bar ---------- */
+    #bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      height: 32px;
+      background: var(--bar-bg);
+      border-bottom: 1px solid var(--border);
+      font: 13px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--muted);
+      flex: none;
+    }
+    #bar label { user-select: none; }
+    #bar select, #bar button {
+      font: inherit;
+      color: var(--fg);
+      background: var(--select-bg);
+      border: 1px solid var(--select-border);
+      border-radius: 5px;
+      padding: 3px 8px;
+      height: 24px;
+      cursor: pointer;
+      outline: none;
+    }
+    #bar select:hover, #bar button:hover { border-color: var(--muted); }
+    #bar select:focus-visible, #bar button:focus-visible { border-color: var(--caret); }
+    #bar select:disabled { opacity: .5; cursor: default; }
+    #timer { min-width: 64px; font-variant-numeric: tabular-nums; }
+    #timer.running { border-color: var(--caret); }
+    #timer.low { color: var(--warn); border-color: var(--warn); }
+    #timer.done { color: var(--warn); border-color: var(--warn); animation: pulse 1s ease-in-out 3; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    #spacer { flex: 1; }
+
+    /* ---------- editor ---------- */
+    #editor {
+      flex: 1;
+      display: block;
+      width: 100%;
+      max-width: 634px;
+      margin: 0 auto;
+      padding: 12px 0 96px;
+      border: 0;
+      outline: none;
+      resize: none;
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      caret-color: var(--caret);
+      overflow-y: auto;
+    }
+    #editor::selection { background: var(--selection); }
+    #editor::placeholder { color: var(--placeholder); opacity: 1; }
+    /* the prompt vanishes as soon as the editor is clicked */
+    #editor:focus::placeholder { color: transparent; }
+
+    @media (max-width: 700px) {
+      #editor { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <label for="duration">Timer:</label>
+    <select id="duration" title="Timer length">
+      <option value="1">1 min</option>
+      <option value="3">3 min</option>
+      <option value="5" selected>5 min</option>
+      <option value="10">10 min</option>
+      <option value="15">15 min</option>
+      <option value="20">20 min</option>
+      <option value="30">30 min</option>
+    </select>
+    <button id="timer" title="Start the timer">Start</button>
+    <span id="spacer"></span>
+    <span id="count">0 words</span>
+    <button id="download" title="Download as .txt">Save .txt</button>
+  </div>
+
+  <textarea id="editor" placeholder="Want to write but your mind goes completely blank? Do a stream-of-consciousness brain dump by writing anything that comes to mind for five minutes." spellcheck="true"></textarea>
+
+  <script>
+    (function () {
+      var STORE_TEXT = 'writer:text';
+      var STORE_DUR = 'writer:duration';
+
+      var editor = document.getElementById('editor');
+      var count = document.getElementById('count');
+      var timerBtn = document.getElementById('timer');
+      var durSel = document.getElementById('duration');
+      var dlBtn = document.getElementById('download');
+
+      // ---------- storage helpers ----------
+      function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+      function save(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+
+      // ---------- editor ----------
+      editor.value = load(STORE_TEXT) || '';
+      var savedDur = load(STORE_DUR);
+      if (savedDur) durSel.value = savedDur;
+      if (!durSel.value) durSel.value = '5';
+
+      function updateCount() {
+        var words = (editor.value.trim().match(/\S+/g) || []).length;
+        count.textContent = words + (words === 1 ? ' word' : ' words');
+      }
+      updateCount();
+
+      editor.addEventListener('input', function () {
+        save(STORE_TEXT, editor.value);
+        updateCount();
+      });
+
+      // Extra safety net: write the text again whenever the page is being
+      // refreshed, closed, or hidden (tab switch, mobile app switch).
+      function saveNow() { save(STORE_TEXT, editor.value); }
+      window.addEventListener('beforeunload', saveNow);
+      window.addEventListener('pagehide', saveNow);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') saveNow();
+      });
+
+      // If the same page is open in another tab, keep both in sync so one
+      // tab can't overwrite newer text from the other.
+      window.addEventListener('storage', function (e) {
+        if (e.key === STORE_TEXT && e.newValue !== null && e.newValue !== editor.value) {
+          editor.value = e.newValue;
+          updateCount();
+        }
+      });
+
+      // ---------- download ----------
+      dlBtn.addEventListener('click', function () {
+        var blob = new Blob([editor.value], { type: 'text/plain;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'writing-' + new Date().toISOString().slice(0, 10) + '.txt';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      });
+
+      // ---------- timer ----------
+      var interval = null;
+      var endsAt = 0;
+
+      function fmt(ms) {
+        var s = Math.max(0, Math.ceil(ms / 1000));
+        var m = Math.floor(s / 60);
+        var r = s % 60;
+        return m + ':' + (r < 10 ? '0' : '') + r;
+      }
+
+      function beep() {
+        try {
+          var Ctx = window.AudioContext || window.webkitAudioContext;
+          var ctx = new Ctx();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = 660;
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.9);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 1);
+        } catch (e) {}
+      }
+
+      function resetTimerUI() {
+        timerBtn.classList.remove('running', 'low', 'done');
+        timerBtn.textContent = 'Start';
+        timerBtn.title = 'Start the timer';
+        durSel.disabled = false;
+        document.title = 'Writer';
+      }
+
+      function stopTimer() {
+        clearInterval(interval);
+        interval = null;
+        resetTimerUI();
+      }
+
+      function finishTimer() {
+        clearInterval(interval);
+        interval = null;
+        timerBtn.classList.remove('running', 'low');
+        timerBtn.classList.add('done');
+        timerBtn.textContent = "Time's up";
+        timerBtn.title = 'Click to reset';
+        durSel.disabled = false;
+        document.title = "Time's up — Writer";
+        beep();
+      }
+
+      function tick() {
+        var left = endsAt - Date.now();
+        if (left <= 0) { finishTimer(); return; }
+        timerBtn.textContent = fmt(left);
+        document.title = fmt(left) + ' — Writer';
+        timerBtn.classList.toggle('low', left <= 30000);
+      }
+
+      function startTimer() {
+        var minutes = parseInt(durSel.value, 10) || 5;
+        endsAt = Date.now() + minutes * 60 * 1000;
+        timerBtn.classList.remove('done');
+        timerBtn.classList.add('running');
+        timerBtn.title = 'Click to stop';
+        durSel.disabled = true;
+        tick();
+        interval = setInterval(tick, 250);
+        editor.focus();
+      }
+
+      timerBtn.addEventListener('click', function () {
+        if (interval) { stopTimer(); }
+        else if (timerBtn.classList.contains('done')) { resetTimerUI(); }
+        else { startTimer(); }
+        editor.focus();
+      });
+
+      durSel.addEventListener('change', function () {
+        save(STORE_DUR, durSel.value);
+        editor.focus();
+      });
+    })();
+  </script>
+</body>
+</html>
